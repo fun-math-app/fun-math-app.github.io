@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Fun</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Load Babel to process React JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        /* Custom animations */
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .animate-shake {
+          animation: shake 0.4s ease-in-out;
+        }
+        @keyframes fade-in-up {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.5s ease-out forwards;
+        }
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      const EMOJIS = ['🍎', '🐶', '🚗', '⭐️', '🎈', '🐱', '🍩', '🦖', '🦋', '⚽️', '🍓', '🐢'];
+
+      const EMOJI_COLORS = {
+        '🍎': 'text-red-500',
+        '🐶': 'text-amber-700',
+        '🚗': 'text-blue-500',
+        '⭐️': 'text-yellow-500',
+        '🎈': 'text-red-500',
+        '🐱': 'text-orange-500',
+        '🍩': 'text-amber-800',
+        '🦖': 'text-green-600',
+        '🦋': 'text-blue-500',
+        '⚽️': 'text-slate-800',
+        '🍓': 'text-red-500',
+        '🐢': 'text-green-600'
+      };
+
+      const TRANSLATIONS = {
+        en: {
+          title: "Math Fun! ✨",
+          add: "Add",
+          sub: "Subtract",
+          mul: "Multiply",
+          div: "Divide",
+          interactiveMode: "Interactive Mode",
+          greatJob: "Great Job!",
+          oops: "Oops! Try counting the pictures again.",
+          nextProblem: "Next Problem",
+          emptyPool: "Empty Pool",
+          tooMany: "Too many!",
+          putAllHere: "Put them all here!",
+          countAllBoxes: "Count ALL the items in the boxes!",
+          howManyOneCircle: "How many items are inside just ONE circle?",
+          combineAll: "Drag or tap to combine all items into the big box!",
+          countNotCrossed: "Count the items that are NOT crossed out!",
+          crossOut1: "Drag or tap the ✕'s to cross out exactly ",
+          crossOut2: " items!",
+          allCrossedOut: "All crossed out!",
+          putInBox1: "Drag or tap emojis to put ",
+          putInBox2: " in each box!",
+          shareEqually: "Drag or tap to share emojis equally into the circles!",
+          removeStar: "Remove a star",
+          addStar: "Add a star"
+        },
+        he: {
+          title: "כיף בחשבון! ✨",
+          add: "חיבור",
+          sub: "חיסור",
+          mul: "כפל",
+          div: "חילוק",
+          interactiveMode: "מצב אינטראקטיבי",
+          greatJob: "כל הכבוד!",
+          oops: "אופס! נסו לספור שוב.",
+          nextProblem: "תרגיל הבא",
+          emptyPool: "מאגר ריק",
+          tooMany: "יותר מדי!",
+          putAllHere: "שימו את כולם כאן!",
+          countAllBoxes: "ספרו את כל הפריטים בקופסאות!",
+          howManyOneCircle: "כמה פריטים יש בתוך עיגול אחד בלבד?",
+          combineAll: "גררו או לחצו כדי לשלב את כולם לקופסה הגדולה!",
+          countNotCrossed: "ספרו את הפריטים שאינם מחוקים!",
+          crossOut1: "גררו או לחצו על ה-✕ כדי למחוק בדיוק ",
+          crossOut2: " פריטים!",
+          allCrossedOut: "הכל נמחק!",
+          putInBox1: "גררו או לחצו על סמיילים כדי לשים ",
+          putInBox2: " בכל קופסה!",
+          shareEqually: "גררו או לחצו כדי לחלק את הסמיילים שווה בשווה!",
+          removeStar: "הורד כוכב",
+          addStar: "הוסף כוכב"
+        }
+      };
+
+      function App() {
+        const [lang, setLang] = useState('en');
+        const [operation, setOperation] = useState('add');
+        const [num1, setNum1] = useState(0);
+        const [num2, setNum2] = useState(0);
+        const [options, setOptions] = useState([]);
+        const [emoji, setEmoji] = useState('🍎');
+        const [score, setScore] = useState(0);
+        const [feedback, setFeedback] = useState(null); // 'correct' | 'incorrect' | null
+        const [selectedAnswer, setSelectedAnswer] = useState(null);
+        const [isAdvanced, setIsAdvanced] = useState(true);
+        const [draggableItems, setDraggableItems] = useState([]);
+        const [selectedItemId, setSelectedItemId] = useState(null);
+
+        const t = (key) => TRANSLATIONS[lang][key];
+
+        const generateProblem = (op = operation) => {
+          let n1, n2, correct;
+
+          // Keep numbers small and manageable for a 6 year old
+          switch (op) {
+            case 'add':
+              n1 = Math.floor(Math.random() * 6) + 1; // 1 to 6
+              n2 = Math.floor(Math.random() * 6) + 1; // 1 to 6
+              correct = n1 + n2;
+              break;
+            case 'sub':
+              n1 = Math.floor(Math.random() * 10) + 2; // 2 to 11
+              n2 = Math.floor(Math.random() * n1) + 1; // 1 to n1 (guarantees positive result)
+              if (n1 === n2) n2 -= 1; // Avoid 0 for now as it's less visual
+              correct = n1 - n2;
+              break;
+            case 'mul':
+              n1 = Math.floor(Math.random() * 4) + 2; // 2 to 5 groups
+              n2 = Math.floor(Math.random() * 4) + 2; // 2 to 5 items per group
+              correct = n1 * n2;
+              break;
+            case 'div':
+              n2 = Math.floor(Math.random() * 4) + 2; // 2 to 5 groups
+              correct = Math.floor(Math.random() * 4) + 2; // 2 to 5 items per group (the answer)
+              n1 = n2 * correct; // Total items
+              break;
+            default:
+              n1 = 1; n2 = 1; correct = 2;
+          }
+
+          setNum1(n1);
+          setNum2(n2);
+          setEmoji(EMOJIS[Math.floor(Math.random() * EMOJIS.length)]);
+          setFeedback(null);
+          setSelectedAnswer(null);
+          setSelectedItemId(null);
+
+          // Generate 3 unique wrong options
+          const opts = new Set([correct]);
+          while (opts.size < 4) {
+            const offset = Math.floor(Math.random() * 5) + 1;
+            const sign = Math.random() > 0.5 ? 1 : -1;
+            const wrong = correct + (sign * offset);
+            if (wrong > 0 && wrong !== correct) { // Keep answers positive and > 0
+              opts.add(wrong);
+            }
+          }
+          
+          // Shuffle options
+          setOptions(Array.from(opts).sort(() => Math.random() - 0.5));
+        };
+
+        useEffect(() => {
+          generateProblem();
+        }, [operation]);
+
+        // Initialize interactive items for advanced mode
+        useEffect(() => {
+          if (isAdvanced) {
+            if (operation === 'add') {
+              const items = [];
+              for (let i = 0; i < num1; i++) items.push({ id: i, container: 'add-pool-1' });
+              for (let i = 0; i < num2; i++) items.push({ id: num1 + i, container: 'add-pool-2' });
+              setDraggableItems(items);
+            } else if (operation === 'mul') {
+              const items = [];
+              for (let i = 0; i < num1; i++) {
+                for (let j = 0; j < num2; j++) {
+                  items.push({ id: i * num2 + j, container: `mul-box-${i}` });
+                }
+              }
+              setDraggableItems(items);
+            } else if (operation === 'div' || operation === 'sub') {
+              let totalItems = 0;
+              if (operation === 'div') totalItems = num1;
+              else if (operation === 'sub') totalItems = num2;
+
+              setDraggableItems(Array.from({ length: totalItems }).map((_, i) => ({
+                id: i,
+                container: 'pool'
+              })));
+            }
+          }
+        }, [isAdvanced, operation, num1, num2]);
+
+        // Automatically advance to the next problem after a correct answer
+        useEffect(() => {
+          let timer;
+          if (feedback === 'correct') {
+            timer = setTimeout(() => {
+              generateProblem();
+            }, 2500); // 2.5 seconds delay to see the celebration
+          }
+          return () => clearTimeout(timer);
+        }, [feedback]);
+
+        const handleAnswer = (ans) => {
+          if (feedback !== null) return; // Prevent multiple clicks
+
+          setSelectedAnswer(ans);
+          let isCorrect = false;
+
+          if (operation === 'add' && ans === num1 + num2) isCorrect = true;
+          if (operation === 'sub' && ans === num1 - num2) isCorrect = true;
+          if (operation === 'mul' && ans === num1 * num2) isCorrect = true;
+          if (operation === 'div' && ans === num1 / num2) isCorrect = true;
+
+          if (isCorrect) {
+            setFeedback('correct');
+            setScore(s => s + 1);
+          } else {
+            setFeedback('incorrect');
+          }
+        };
+
+        // --- Drag and Drop Handlers ---
+        const handleDragStart = (e, id) => {
+          e.dataTransfer.setData('itemId', id);
+          setSelectedItemId(null); // clear tap selection if starting a drag
+        };
+
+        const handleDragOver = (e) => {
+          e.preventDefault(); // allow drop
+        };
+
+        const handleDrop = (e, container) => {
+          e.preventDefault();
+          const id = parseInt(e.dataTransfer.getData('itemId'), 10);
+          if (!isNaN(id)) moveItem(id, container);
+        };
+
+        const handleItemClick = (e, id) => {
+          e.stopPropagation(); // prevent triggering container click
+          setSelectedItemId(id === selectedItemId ? null : id);
+        };
+
+        const handleContainerClick = (container) => {
+          if (selectedItemId !== null) {
+            moveItem(selectedItemId, container);
+            setSelectedItemId(null);
+          }
+        };
+
+        const moveItem = (id, container) => {
+          // For subtraction, ensure only one X per emoji
+          if (operation === 'sub' && container.startsWith('emoji-')) {
+            const existingItem = draggableItems.find(item => item.container === container);
+            if (existingItem && existingItem.id !== id) return; // Already occupied
+          }
+
+          setDraggableItems(prev => prev.map(item => 
+            item.id === id ? { ...item, container } : item
+          ));
+        };
+
+        // --- Visual Renderers ---
+
+        const renderAdditionVisuals = () => {
+          if (isAdvanced) {
+            return (
+              <div className="flex flex-col items-center justify-center gap-4 my-4 w-full">
+                <p className="text-gray-600 font-medium mb-1 flex items-center gap-2 text-center">
+                  <span className="text-lg">🖐️</span> {t('combineAll')}
+                </p>
+
+                <div className="flex items-center gap-2 sm:gap-4">
+                  {/* Pool 1 */}
+                  <div 
+                    className={`min-h-[80px] min-w-[80px] sm:min-w-[100px] border-4 border-dashed border-blue-300 bg-blue-50 rounded-2xl p-4 flex flex-wrap justify-center gap-2 transition-colors ${selectedItemId !== null ? 'hover:bg-blue-100 cursor-pointer' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, 'add-pool-1')}
+                    onClick={() => handleContainerClick('add-pool-1')}
+                  >
+                    {draggableItems.filter(item => item.container === 'add-pool-1').map(renderDraggableItem)}
+                  </div>
+                  
+                  <div className="text-3xl sm:text-5xl text-blue-400 font-bold">+</div>
+                  
+                  {/* Pool 2 */}
+                  <div 
+                    className={`min-h-[80px] min-w-[80px] sm:min-w-[100px] border-4 border-dashed border-blue-300 bg-blue-50 rounded-2xl p-4 flex flex-wrap justify-center gap-2 transition-colors ${selectedItemId !== null ? 'hover:bg-blue-100 cursor-pointer' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, 'add-pool-2')}
+                    onClick={() => handleContainerClick('add-pool-2')}
+                  >
+                    {draggableItems.filter(item => item.container === 'add-pool-2').map(renderDraggableItem)}
+                  </div>
+                </div>
+
+                <div className="text-3xl text-indigo-300 font-bold mt-1">↓</div>
+
+                {/* Result Box */}
+                <div 
+                  className={`min-h-[120px] w-full max-w-[400px] border-4 border-indigo-300 bg-indigo-50 rounded-3xl p-4 flex flex-wrap justify-center content-center gap-2 shadow-inner transition-colors ${selectedItemId !== null ? 'hover:bg-indigo-100 cursor-pointer' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, 'add-result')}
+                  onClick={() => handleContainerClick('add-result')}
+                >
+                  {draggableItems.filter(item => item.container === 'add-result').map(renderDraggableItem)}
+                  {draggableItems.filter(item => item.container === 'add-result').length === 0 && (
+                    <span className="text-indigo-400 font-bold opacity-50">{t('putAllHere')}</span>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 my-8 bg-blue-50 p-6 rounded-3xl w-full">
+              <div className="flex flex-wrap justify-center gap-2 max-w-[150px]">
+                {Array.from({ length: num1 }).map((_, i) => (
+                  <span key={`n1-${i}`} className="text-4xl sm:text-5xl animate-bounce" style={{ animationDelay: `${i * 0.1}s` }}>{emoji}</span>
+                ))}
+              </div>
+              <div className="text-5xl text-blue-400 font-bold">+</div>
+              <div className="flex flex-wrap justify-center gap-2 max-w-[150px]">
+                {Array.from({ length: num2 }).map((_, i) => (
+                  <span key={`n2-${i}`} className="text-4xl sm:text-5xl animate-bounce" style={{ animationDelay: `${i * 0.1}s` }}>{emoji}</span>
+                ))}
+              </div>
+            </div>
+          );
+        };
+
+        const renderDraggableX = (item) => (
+          <div
+            key={item.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, item.id)}
+            onClick={(e) => handleItemClick(e, item.id)}
+            className={`text-red-500 text-5xl sm:text-6xl font-black drop-shadow-md cursor-grab active:cursor-grabbing transition-transform hover:scale-110 leading-none
+              ${selectedItemId === item.id ? 'ring-4 ring-red-400 bg-red-100 rounded-full scale-110 z-20' : ''}`}
+          >
+            ✕
+          </div>
+        );
+
+        const renderSubtractionVisuals = () => {
+          if (isAdvanced) {
+            return (
+              <div className="flex flex-col items-center justify-center gap-4 my-4 w-full">
+                <p className="text-gray-600 font-medium mb-1 flex items-center gap-2 text-center">
+                  <span className="text-lg">🖐️</span> {t('crossOut1')}<b>{num2}</b>{t('crossOut2')}
+                </p>
+                
+                {/* Emoji Pool for X's */}
+                <div 
+                  className="min-h-[80px] w-full max-w-[400px] border-4 border-dashed border-red-300 bg-red-50 rounded-2xl p-4 flex flex-wrap justify-center gap-2"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, 'pool')}
+                  onClick={() => handleContainerClick('pool')}
+                >
+                  {draggableItems.filter(item => item.container === 'pool').map(renderDraggableX)}
+                  {draggableItems.filter(item => item.container === 'pool').length === 0 && (
+                    <span className="text-red-400 font-bold opacity-50">{t('allCrossedOut')}</span>
+                  )}
+                </div>
+
+                {/* Target Emojis */}
+                <div className="flex flex-wrap justify-center gap-3 max-w-[400px] mt-2">
+                  {Array.from({ length: num1 }).map((_, i) => {
+                    const containerId = `emoji-${i}`;
+                    const crossItem = draggableItems.find(item => item.container === containerId);
+                    
+                    return (
+                      <div 
+                        key={containerId}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, containerId)}
+                        onClick={() => handleContainerClick(containerId)}
+                        className={`relative inline-flex items-center justify-center w-[60px] h-[60px] sm:w-[70px] sm:h-[70px] rounded-xl border-2 transition-all ${
+                          selectedItemId !== null && !crossItem ? 'hover:bg-red-50 cursor-pointer border-red-200 border-dashed' : 'border-transparent'
+                        }`}
+                      >
+                        <span className={`text-4xl sm:text-5xl transition-opacity duration-300 ${crossItem ? 'opacity-30' : ''}`}>
+                          {emoji}
+                        </span>
+                        {crossItem && (
+                          <div className="absolute inset-0 flex items-center justify-center z-10">
+                            {renderDraggableX(crossItem)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex flex-col items-center justify-center gap-4 my-8 bg-red-50 p-6 rounded-3xl w-full">
+              <p className="text-gray-500 font-medium mb-2">{t('countNotCrossed')}</p>
+              <div className="flex flex-wrap justify-center gap-3 max-w-[400px]">
+                {Array.from({ length: num1 }).map((_, i) => {
+                  const isCrossedOut = i >= num1 - num2;
+                  return (
+                    <div key={i} className="relative inline-flex items-center justify-center w-[60px] h-[60px] sm:w-[70px] sm:h-[70px]">
+                      <span className={`text-4xl sm:text-5xl transition-opacity duration-500 ${isCrossedOut ? 'opacity-30' : ''}`}>
+                        {emoji}
+                      </span>
+                      {isCrossedOut && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-red-500 text-5xl sm:text-6xl font-black drop-shadow-md">✕</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        };
+
+        const renderDraggableItem = (item) => (
+          <div 
+            key={item.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, item.id)}
+            onClick={(e) => handleItemClick(e, item.id)}
+            className={`text-3xl sm:text-4xl cursor-grab active:cursor-grabbing transition-transform hover:scale-110 
+              ${selectedItemId === item.id ? 'ring-4 ring-indigo-400 bg-indigo-50 rounded-full scale-110 z-10' : ''}`}
+          >
+            {emoji}
+          </div>
+        );
+
+        const renderMultiplicationVisuals = () => {
+          if (isAdvanced) {
+            return (
+              <div className="flex flex-col items-center justify-center gap-4 my-4 w-full">
+                <p className="text-gray-600 font-medium mb-1 flex items-center gap-2 text-center">
+                  <span className="text-lg">🖐️</span> {t('combineAll')}
+                </p>
+                
+                {/* Starting Boxes */}
+                <div className="flex flex-wrap justify-center gap-4 mt-2">
+                  {Array.from({ length: num1 }).map((_, groupIdx) => {
+                    const containerId = `mul-box-${groupIdx}`;
+                    const itemsInBox = draggableItems.filter(item => item.container === containerId);
+
+                    return (
+                      <div 
+                        key={containerId} 
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, containerId)}
+                        onClick={() => handleContainerClick(containerId)}
+                        className={`relative border-4 border-dashed rounded-2xl p-4 flex flex-wrap justify-center gap-2 w-[100px] sm:w-[120px] min-h-[80px] shadow-sm transition-colors border-green-300 bg-green-50 ${
+                          selectedItemId !== null ? 'hover:bg-green-100 cursor-pointer' : ''
+                        }`}
+                      >
+                        {itemsInBox.map(renderDraggableItem)}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="text-3xl text-indigo-300 font-bold mt-1">↓</div>
+
+                {/* Result Box */}
+                <div 
+                  className={`min-h-[120px] w-full max-w-[400px] border-4 border-indigo-300 bg-indigo-50 rounded-3xl p-4 flex flex-wrap justify-center content-center gap-2 shadow-inner transition-colors ${selectedItemId !== null ? 'hover:bg-indigo-100 cursor-pointer' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, 'mul-result')}
+                  onClick={() => handleContainerClick('mul-result')}
+                >
+                  {draggableItems.filter(item => item.container === 'mul-result').map(renderDraggableItem)}
+                  {draggableItems.filter(item => item.container === 'mul-result').length === 0 && (
+                    <span className="text-indigo-400 font-bold opacity-50">{t('putAllHere')}</span>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex flex-col items-center justify-center gap-4 my-8 bg-green-50 p-6 rounded-3xl w-full">
+               <p className="text-gray-500 font-medium mb-2">{t('countAllBoxes')}</p>
+              <div className="flex flex-wrap justify-center gap-4">
+                {Array.from({ length: num1 }).map((_, groupIdx) => (
+                  <div key={`group-${groupIdx}`} className="border-4 border-green-200 bg-white rounded-2xl p-4 flex flex-wrap justify-center gap-2 w-[120px] shadow-sm">
+                    {Array.from({ length: num2 }).map((_, itemIdx) => (
+                      <span key={`item-${itemIdx}`} className="text-3xl">{emoji}</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        };
+
+        const renderDivisionVisuals = () => {
+          const itemsPerGroup = num1 / num2;
+          
+          if (isAdvanced) {
+            return (
+              <div className="flex flex-col items-center justify-center gap-4 my-4 w-full">
+                <p className="text-gray-600 font-medium mb-1 flex items-center gap-2 text-center">
+                   <span className="text-lg">🖐️</span> {t('shareEqually')}
+                </p>
+
+                {/* Emoji Pool */}
+                <div 
+                  className="min-h-[80px] w-full max-w-[400px] border-4 border-dashed border-slate-300 bg-slate-50 rounded-2xl p-4 flex flex-wrap justify-center gap-2"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, 'pool')}
+                  onClick={() => handleContainerClick('pool')}
+                >
+                  {draggableItems.filter(item => item.container === 'pool').map(renderDraggableItem)}
+                  {draggableItems.filter(item => item.container === 'pool').length === 0 && (
+                    <span className="text-slate-400 font-bold opacity-50">{t('emptyPool')}</span>
+                  )}
+                </div>
+
+                {/* Circles */}
+                <div className="flex flex-wrap justify-center gap-4 mt-2">
+                  {Array.from({ length: num2 }).map((_, groupIdx) => {
+                    const containerId = `circle-${groupIdx}`;
+                    const itemsInCircle = draggableItems.filter(item => item.container === containerId);
+                    const isOverfilled = itemsInCircle.length > itemsPerGroup;
+
+                    return (
+                      <div 
+                        key={containerId} 
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, containerId)}
+                        onClick={() => handleContainerClick(containerId)}
+                        className={`relative border-4 rounded-full p-4 flex flex-wrap justify-center content-center items-center gap-2 w-[160px] h-[160px] shadow-sm transition-colors ${
+                          isOverfilled ? 'border-red-500 bg-red-50' : 'border-purple-300 bg-purple-50'
+                        } ${selectedItemId !== null ? 'cursor-pointer' : ''} ${
+                          selectedItemId !== null && !isOverfilled ? 'hover:bg-purple-100' : ''
+                        } ${selectedItemId !== null && isOverfilled ? 'hover:bg-red-100' : ''}`}
+                      >
+                        {isOverfilled && (
+                          <div className="absolute -top-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md animate-bounce z-20">
+                            {t('tooMany')}
+                          </div>
+                        )}
+                        {itemsInCircle.map(renderDraggableItem)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex flex-col items-center justify-center gap-4 my-8 bg-purple-50 p-6 rounded-3xl w-full">
+               <p className="text-gray-500 font-medium mb-2">{t('howManyOneCircle')}</p>
+              <div className="flex flex-wrap justify-center gap-4">
+                {Array.from({ length: num2 }).map((_, groupIdx) => (
+                  <div key={`group-${groupIdx}`} className="border-4 border-purple-300 bg-white rounded-full p-4 flex flex-wrap justify-center content-center items-center gap-2 w-[160px] h-[160px] shadow-sm">
+                    {Array.from({ length: itemsPerGroup }).map((_, itemIdx) => (
+                      <span key={`item-${itemIdx}`} className="text-3xl leading-none">{emoji}</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        };
+
+        const getOperatorString = () => {
+          switch(operation) {
+            case 'add': return '+';
+            case 'sub': return '-';
+            case 'mul': return '×';
+            case 'div': return '÷';
+            default: return '+';
+          }
+        };
+
+        let num1Class = "";
+        let num2Class = "";
+
+        if (isAdvanced) {
+          if (operation === 'div') {
+            num1Class = EMOJI_COLORS[emoji] || "";
+            num2Class = "text-purple-500";
+          } else if (operation === 'mul') {
+            num1Class = "text-green-500";
+            num2Class = EMOJI_COLORS[emoji] || "";
+          } else if (operation === 'sub') {
+            num1Class = EMOJI_COLORS[emoji] || "";
+            num2Class = "text-red-500";
+          } else if (operation === 'add') {
+            num1Class = EMOJI_COLORS[emoji] || "";
+            num2Class = EMOJI_COLORS[emoji] || "";
+          }
+        }
+
+        return (
+          <div className="min-h-screen bg-slate-100 font-sans pb-12" dir={lang === 'he' ? 'rtl' : 'ltr'}>
+            {/* Header */}
+            <div className="bg-white shadow-sm p-4 mb-6 flex justify-between items-center rounded-b-3xl max-w-4xl mx-auto">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-indigo-600 tracking-tight">
+                {t('title')}
+              </h1>
+              
+              <div className="flex items-center gap-4">
+                {/* Language Toggles */}
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setLang('en')} 
+                    className={`text-3xl transition-all hover:scale-110 ${lang === 'en' ? 'opacity-100 drop-shadow-md' : 'opacity-40 grayscale'}`}
+                    title="English"
+                  >
+                    🇺🇸
+                  </button>
+                  <button 
+                    onClick={() => setLang('he')} 
+                    className={`text-3xl transition-all hover:scale-110 ${lang === 'he' ? 'opacity-100 drop-shadow-md' : 'opacity-40 grayscale'}`}
+                    title="עברית"
+                  >
+                    🇮🇱
+                  </button>
+                </div>
+
+                {/* Score */}
+                <div className="flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full border-2 border-yellow-300">
+                  <span className="text-2xl animate-pulse">⭐</span>
+                  <input 
+                    type="number"
+                    value={score}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setScore(isNaN(val) ? 0 : Math.max(0, val));
+                    }}
+                    className="text-xl font-bold text-yellow-700 bg-transparent w-10 text-center outline-none focus:bg-yellow-200 rounded transition-colors"
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto px-4">
+              {/* Navigation / Operation Selector */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                {[
+                  { id: 'add', label: t('add'), icon: '➕', color: 'bg-blue-400', active: 'ring-blue-400' },
+                  { id: 'sub', label: t('sub'), icon: '➖', color: 'bg-red-400', active: 'ring-red-400' },
+                  { id: 'mul', label: t('mul'), icon: '✖️', color: 'bg-green-400', active: 'ring-green-400' },
+                  { id: 'div', label: t('div'), icon: '➗', color: 'bg-purple-400', active: 'ring-purple-400' },
+                ].map(op => (
+                  <button
+                    key={op.id}
+                    onClick={() => setOperation(op.id)}
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-white font-bold text-lg sm:text-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-1
+                      ${op.color} 
+                      ${operation === op.id ? `ring-4 ring-offset-2 ${op.active} scale-105` : 'opacity-80 hover:opacity-100'}`}
+                  >
+                    <span className="text-xl font-bold">{op.icon}</span>
+                    {op.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Main Play Area */}
+              <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-xl border-4 border-indigo-50 relative overflow-hidden">
+                
+                {/* Advanced Mode Toggle */}
+                <div className="flex justify-end mb-2 min-h-[40px]">
+                  <label className="flex items-center gap-2 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-full transition-colors border-2 border-indigo-100 w-fit">
+                    <input 
+                      type="checkbox" 
+                      checked={isAdvanced}
+                      onChange={(e) => setIsAdvanced(e.target.checked)}
+                      className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <span className="font-bold text-indigo-700 text-sm sm:text-base flex items-center gap-1">
+                      {t('interactiveMode')} <span className="text-sm">🖐️</span>
+                    </span>
+                  </label>
+                </div>
+
+                {/* Confetti overlay for correct answer */}
+                {feedback === 'correct' && (
+                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 bg-white/60 backdrop-blur-sm rounded-3xl">
+                      <div className="text-center animate-bounce">
+                        <div className="text-7xl mx-auto mb-4">😊</div>
+                        <h2 className="text-4xl font-black text-green-600">{t('greatJob')}</h2>
+                      </div>
+                   </div>
+                )}
+
+                {/* Problem Header */}
+                <div className="text-center mb-6" dir="ltr">
+                  <h2 className="text-5xl sm:text-7xl font-black text-slate-700 tracking-wider flex justify-center items-center gap-4">
+                    <span className={`transition-colors duration-300 ${num1Class}`}>{num1}</span> 
+                    <span className="text-indigo-400">{getOperatorString()}</span> 
+                    <span className={`transition-colors duration-300 ${num2Class}`}>{num2}</span> 
+                    <span className="text-indigo-400">=</span> 
+                    <span>?</span>
+                  </h2>
+                </div>
+
+                {/* Visual Explanation */}
+                <div className="flex justify-center min-h-[250px] items-center">
+                  {operation === 'add' && renderAdditionVisuals()}
+                  {operation === 'sub' && renderSubtractionVisuals()}
+                  {operation === 'mul' && renderMultiplicationVisuals()}
+                  {operation === 'div' && renderDivisionVisuals()}
+                </div>
+
+                {/* Answer Options */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8" dir="ltr">
+                  {options.map((opt, i) => {
+                    let btnClass = "bg-slate-100 text-slate-700 hover:bg-indigo-100 border-slate-200 hover:border-indigo-300";
+                    
+                    if (feedback !== null) {
+                      if (opt === (
+                        operation === 'add' ? num1 + num2 :
+                        operation === 'sub' ? num1 - num2 :
+                        operation === 'mul' ? num1 * num2 :
+                        num1 / num2
+                      )) {
+                        btnClass = "bg-green-400 text-white border-green-500 scale-105 shadow-lg ring-4 ring-green-200";
+                      } else if (opt === selectedAnswer) {
+                        btnClass = "bg-red-400 text-white border-red-500 animate-shake";
+                      } else {
+                        btnClass = "bg-slate-50 text-slate-300 border-slate-100 opacity-50";
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => handleAnswer(opt)}
+                        disabled={feedback !== null}
+                        className={`py-6 rounded-2xl text-4xl font-black border-b-4 transition-all duration-300 ${btnClass}`}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Next Button / Error Feedback */}
+                {feedback === 'incorrect' && (
+                  <div className="mt-8 flex flex-col items-center justify-center animate-fade-in-up">
+                    <div className="flex items-center gap-2 text-red-500 font-bold text-xl mb-4 bg-red-50 px-6 py-3 rounded-full">
+                      <span className="text-xl">😟</span> {t('oops')}
+                    </div>
+                    <button
+                      onClick={() => generateProblem()}
+                      className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-8 py-4 rounded-full text-2xl font-bold transition-all hover:scale-105 hover:shadow-xl active:scale-95 shadow-indigo-200 shadow-lg"
+                    >
+                      {t('nextProblem')} <span className="text-2xl font-bold">{lang === 'he' ? '⬅️' : '➡️'}</span>
+                    </button>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+</body>
+</html>
